@@ -1,34 +1,18 @@
 # NitroShred
 
-High-performance bare-metal data invalidation engine. Targets physical line-rate saturation of storage media (≥ 3,500 MB/s on NVMe PCIe Gen4) through hardware-aligned overwrites, OS cache bypassing, and async I/O.
+NitroShred permanently deletes files so they can never be recovered — not by software, not by forensic tools. It's built to be as fast as your storage hardware allows.
 
 ---
 
-## How it works
+## Why not just delete normally?
 
-NitroShred picks the fastest safe erasure path per file at runtime:
+When you delete a file the normal way, the data is still physically on your drive. The operating system just marks that space as "available" — the actual content sits there until something else overwrites it. Recovery tools can bring it back in seconds.
 
-1. **Hardware TRIM** (SSD/NVMe primary) — `fallocate(PUNCH_HOLE)` instructs the filesystem to release physical flash blocks directly. The kernel passes TRIM commands to the drive controller for exactly those sectors. Near-instant on SSDs.
-2. **Parallel pwrite** (files ≥ 512 MB) — splits the file into N segments and writes zeros concurrently via `pwrite()` at independent byte offsets, saturating NVMe's internal command queue depth.
-3. **io_uring** (Linux, HDD / TRIM-unsupported) — zero-context-switch async ring buffer. Batches write submissions without per-operation syscalls.
-4. **O_DIRECT zero-fill** (fallback / Windows) — bypasses the OS page cache, feeding data straight to the device controller DMA channel.
+NitroShred overwrites the file's contents before deleting it, then wipes its name and history. There's nothing left to recover.
 
-After the I/O path completes, every file goes through a metadata pipeline: truncate → fsync → rename to a random name → unlink.
+### What about SSDs?
 
----
-
-## Optimizations
-
-| # | Optimization | Gain |
-|---|---|---|
-| 01 | O_DIRECT — bypasses OS page cache | baseline |
-| 02 | 8 MB aligned buffers — reduces syscall count 128× vs 64 KB | +10–20% |
-| 03 | Single-pass zero overwrite | — |
-| 04 | Rayon thread pool — parallel multi-file processing | scales with core count |
-| 05 | io_uring async ring buffer | 2–5× on NVMe |
-| 06 | Hardware TRIM / fallocate PUNCH_HOLE | ~100× vs zero-fill on SSD |
-| 07 | Intra-file parallel pwrite (files > 512 MB) | 1.5–2× |
-| 08 | Async metadata pipeline — overlapped rename/unlink | +5–15% multi-file |
+SSDs have an extra complication. Even if you overwrite a file, the drive's internal controller often writes the new data to a fresh location and keeps the old data sitting in another spot. NitroShred handles this by sending a direct erase command to the drive hardware itself, so the original data is physically gone.
 
 ---
 
@@ -36,10 +20,9 @@ After the I/O path completes, every file goes through a metadata pipeline: trunc
 
 ```bash
 cargo build --release
-# binary at target/release/nitroshred
 ```
 
-Requires Rust 1.75+. Linux kernel 5.1+ for io_uring support.
+The built program will be at `target/release/nitroshred`.
 
 ---
 
@@ -49,51 +32,40 @@ Requires Rust 1.75+. Linux kernel 5.1+ for io_uring support.
 nitroshred [OPTIONS] <PATH>
 ```
 
-| Flag | Description |
+| Option | What it does |
 |---|---|
-| `<PATH>` | File or directory to shred |
-| `-f, --force` | Bypass read-only permissions |
-| `-r, --recursive` | Recursively shred a directory tree |
-| `-v, --verbose` | Print I/O path and speed per file |
-| `--no-trim` | Disable hardware TRIM, force zero-fill on SSD targets |
+| `<PATH>` | The file or folder you want to permanently delete |
+| `-f, --force` | Delete even if the file is marked as read-only |
+| `-r, --recursive` | Delete an entire folder and everything inside it |
+| `-v, --verbose` | Show progress and speed while running |
+| `--no-trim` | Don't use the SSD fast-erase method, use overwriting instead |
 
 **Examples**
 
 ```bash
-# Shred a single file
-nitroshred secret.db
+# Permanently delete a single file
+nitroshred secret.pdf
 
-# Shred a directory tree verbosely
-nitroshred -r -v /mnt/data/vault
+# Permanently delete an entire folder
+nitroshred -r /home/user/private-documents
 
-# Force zero-fill path even on NVMe
-nitroshred --no-trim large_file.bin
+# See what's happening while it runs
+nitroshred -r -v /home/user/private-documents
 ```
 
 ---
 
 ## Safety
 
-Execution is blocked unconditionally — before any I/O, regardless of `--force` — if the target path is or is inside a protected system directory:
+NitroShred will refuse to run if you point it at a system folder — even if you use `--force`. This protects your operating system from being accidentally wiped.
 
-```
-/  /bin  /boot  /dev  /etc  /lib  /lib64  /proc  /run  /sbin  /sys  /usr
-C:\  C:\Windows  C:\Program Files
-```
+Protected locations include: `/`, `/etc`, `/bin`, `/usr`, `C:\Windows`, and similar.
 
 ---
 
-## SSD / NVMe note
+## Platforms
 
-Traditional software zero-fill does not reliably erase data on SSDs. The Flash Translation Layer (FTL) uses wear-leveling to remap writes to freshly allocated blocks, leaving original physical cells intact. NitroShred's TRIM path bypasses this by instructing the drive controller to erase the original flash blocks directly.
-
-Use `--no-trim` only on HDD targets or when benchmarking the zero-fill path.
-
----
-
-## Platform
-
-| Platform | TRIM | io_uring | O_DIRECT |
-|---|---|---|---|
-| Linux | `fallocate(PUNCH_HOLE)` | ✓ | ✓ |
-| Windows | — (zero-fill fallback) | — | `FILE_FLAG_NO_BUFFERING` (planned) |
+| Platform | Status |
+|---|---|
+| Linux | Fully supported |
+| Windows | Supported (SSD fast-erase coming soon) |
