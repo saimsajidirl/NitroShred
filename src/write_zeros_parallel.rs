@@ -29,5 +29,8 @@ pub fn parallel_shred(path: &Path) -> std::io::Result<()> {
         })
         .collect::<std::io::Result<Vec<_>>>()?;
 
+    // Single fsync after all threads complete — ensures all writes reach the device
+    OpenOptions::new().write(true).open(path)?.sync_all()?;
+
     Ok(())
 }

@@ -2,50 +2,42 @@ use std::path::Path;
 
 #[cfg(target_os = "linux")]
 pub fn try_trim(path: &Path) -> std::io::Result<bool> {
-    let device = resolve_block_device(path)?;
-    let status = std::process::Command::new("blkdiscard")
-        .arg(&device)
-        .status();
+    use std::fs::OpenOptions;
+    use std::os::unix::io::AsRawFd;
 
-    match status {
-        Ok(s) if s.success() => Ok(true),
-        _ => Ok(false),
+    let file = OpenOptions::new().write(true).open(path)?;
+    let size = file.metadata()?.len();
+
+    if size == 0 {
+        return Ok(true);
     }
-}
 
-#[cfg(target_os = "linux")]
-fn resolve_block_device(path: &Path) -> std::io::Result<String> {
-    // Walk /proc/mounts to find the longest prefix match, return device
-    let mounts = std::fs::read_to_string("/proc/mounts")?;
-    let abs = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let abs_str = abs.to_string_lossy();
+    // fallocate PUNCH_HOLE instructs the filesystem to release the physical blocks
+    // backing this file range. On SSDs, the filesystem passes TRIM commands to the
+    // drive controller for exactly those sectors — no manual extent mapping needed.
+    let ret = unsafe {
+        libc::fallocate(
+            file.as_raw_fd(),
+            libc::FALLOC_FL_PUNCH_HOLE | libc::FALLOC_FL_KEEP_SIZE,
+            0,
+            size as libc::off_t,
+        )
+    };
 
-    let mut best_mount = "";
-    let mut best_device = "";
-
-    for line in mounts.lines() {
-        let mut parts = line.split_whitespace();
-        let device = parts.next().unwrap_or("");
-        let mountpoint = parts.next().unwrap_or("");
-        if abs_str.starts_with(mountpoint) && mountpoint.len() > best_mount.len() {
-            best_mount = mountpoint;
-            best_device = device;
+    if ret == 0 {
+        file.sync_all()?;
+        Ok(true)
+    } else {
+        // EOPNOTSUPP: filesystem doesn't support hole punching (e.g. FAT, older kernels)
+        // Fall through to zero-fill path.
+        match std::io::Error::last_os_error().raw_os_error() {
+            Some(libc::EOPNOTSUPP) | Some(libc::ENOSYS) | Some(libc::EINVAL) => Ok(false),
+            _ => Err(std::io::Error::last_os_error()),
         }
     }
-
-    if best_device.is_empty() {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::NotFound,
-            "could not resolve block device",
-        ));
-    }
-
-    // blkdiscard needs the raw block device, not a partition number for file-level trim
-    Ok(best_device.to_string())
 }
 
 #[cfg(not(target_os = "linux"))]
 pub fn try_trim(_path: &Path) -> std::io::Result<bool> {
-    // Windows FSCTL_FILE_LEVEL_TRIM — not yet implemented; fall back to zero-fill
     Ok(false)
 }

@@ -14,18 +14,17 @@ static BLOCKED_PATHS_WIN: &[&str] = &[
 
 pub fn assert_safe(path: &Path) -> anyhow::Result<()> {
     let canonical = path.canonicalize().unwrap_or_else(|_| path.to_path_buf());
-    let s = canonical.to_string_lossy();
 
     for blocked in BLOCKED_PATHS {
-        if s == *blocked {
-            anyhow::bail!("Refusing to shred protected path: {}", s);
+        if canonical.starts_with(blocked) {
+            anyhow::bail!("Refusing to shred protected path: {}", canonical.display());
         }
     }
 
     #[cfg(target_os = "windows")]
     for blocked in BLOCKED_PATHS_WIN {
-        if s.eq_ignore_ascii_case(blocked) {
-            anyhow::bail!("Refusing to shred protected path: {}", s);
+        if canonical.starts_with(blocked) {
+            anyhow::bail!("Refusing to shred protected path: {}", canonical.display());
         }
     }
 
