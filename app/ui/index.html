@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NitroShred</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="logo">
+        <span class="logo-icon">⚡</span>
+        <span class="logo-text">NitroShred</span>
+      </div>
+      <p class="tagline">Permanent. Unrecoverable. Gone.</p>
+    </header>
+
+    <main>
+      <!-- Drop zone -->
+      <div id="drop-zone" class="drop-zone">
+        <div class="drop-inner">
+          <span class="drop-icon">🗑️</span>
+          <p class="drop-label">Drop files or folders here</p>
+          <p class="drop-sub">or</p>
+          <div class="drop-buttons">
+            <button id="btn-pick-files" class="btn btn-secondary">Pick Files</button>
+            <button id="btn-pick-folder" class="btn btn-secondary">Pick Folder</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Queue -->
+      <div id="queue-section" class="queue-section hidden">
+        <div class="queue-header">
+          <span id="queue-count" class="queue-count">0 items</span>
+          <button id="btn-clear-queue" class="btn-link">Clear all</button>
+        </div>
+        <ul id="queue-list" class="queue-list"></ul>
+      </div>
+
+      <!-- Options -->
+      <div class="options-row">
+        <label class="toggle">
+          <input type="checkbox" id="opt-force" />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">Force (bypass read-only)</span>
+        </label>
+        <label class="toggle">
+          <input type="checkbox" id="opt-no-trim" />
+          <span class="toggle-track"></span>
+          <span class="toggle-label">Disable SSD TRIM</span>
+        </label>
+      </div>
+
+      <!-- Action -->
+      <button id="btn-shred" class="btn btn-danger" disabled>
+        Shred
+      </button>
+    </main>
+
+    <!-- Progress overlay -->
+    <div id="progress-overlay" class="overlay hidden">
+      <div class="overlay-card">
+        <div class="shredding-icon">⚡</div>
+        <p class="overlay-title">Shredding…</p>
+        <div class="progress-bar-wrap">
+          <div id="progress-bar" class="progress-bar"></div>
+        </div>
+        <p id="progress-label" class="progress-label">Preparing…</p>
+      </div>
+    </div>
+
+    <!-- Result overlay -->
+    <div id="result-overlay" class="overlay hidden">
+      <div class="overlay-card">
+        <div id="result-icon" class="result-icon">✅</div>
+        <p id="result-title" class="overlay-title">Done</p>
+        <p id="result-stats" class="result-stats"></p>
+        <ul id="result-errors" class="result-errors hidden"></ul>
+        <button id="btn-result-close" class="btn btn-secondary" style="margin-top:1.5rem">OK</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

@@ -1,3 +1,9 @@
+[workspace]
+members = ["core", "app/src-tauri"]
+resolver = "2"
+
+# ── CLI binary (the original nitroshred command) ─────────────────────────────
+
 [package]
 name = "nitroshred"
 version = "2.0.0"
@@ -10,12 +16,7 @@ path = "src/main.rs"
 [dependencies]
 anyhow = "1"
 clap   = { version = "4.0", features = ["derive"] }
-rayon  = "1.8"
-libc   = "0.2"
-rand   = "0.8"
-
-[target.'cfg(target_os = "linux")'.dependencies]
-io-uring = "0.6"
+nitroshred-core = { path = "core" }
 
 [profile.release]
 opt-level     = 3
