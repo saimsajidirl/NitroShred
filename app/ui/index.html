@@ -8,77 +8,278 @@
 </head>
 <body>
   <div id="app">
-    <header>
-      <div class="logo">
-        <span class="logo-icon">⚡</span>
-        <span class="logo-text">NitroShred</span>
+    <header class="header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/>
+          </svg>
+        </div>
+        <div>
+          <h1 class="brand-title">NitroShred</h1>
+          <p class="brand-sub">Secure data erasure</p>
+        </div>
       </div>
-      <p class="tagline">Permanent. Unrecoverable. Gone.</p>
     </header>
 
-    <main>
-      <!-- Drop zone -->
-      <div id="drop-zone" class="drop-zone">
-        <div class="drop-inner">
-          <span class="drop-icon">🗑️</span>
-          <p class="drop-label">Drop files or folders here</p>
-          <p class="drop-sub">or</p>
-          <div class="drop-buttons">
-            <button id="btn-pick-files" class="btn btn-secondary">Pick Files</button>
-            <button id="btn-pick-folder" class="btn btn-secondary">Pick Folder</button>
+    <nav class="section-nav" role="tablist" aria-label="App sections">
+      <button id="section-shred" class="section-tab active" role="tab" aria-selected="true" data-section="shred">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+        </svg>
+        Shred
+      </button>
+      <button id="section-about" class="section-tab" role="tab" aria-selected="false" data-section="about">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/>
+          <path d="M12 11v5M12 8h.01"/>
+        </svg>
+        About
+      </button>
+    </nav>
+
+    <div id="view-shred" class="view active">
+    <nav class="mode-tabs" role="tablist" aria-label="Shred mode">
+      <button id="tab-folder" class="mode-tab active" role="tab" aria-selected="true" data-mode="folder">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+        </svg>
+        Folder
+      </button>
+      <button id="tab-drive" class="mode-tab" role="tab" aria-selected="false" data-mode="drive">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+          <ellipse cx="12" cy="6" rx="8" ry="3"/>
+          <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/>
+          <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>
+        </svg>
+        Drive
+      </button>
+    </nav>
+
+    <main class="main">
+      <!-- Folder mode -->
+      <section id="panel-folder" class="panel active" role="tabpanel">
+        <div class="card">
+          <div class="card-head">
+            <h2>Target folder</h2>
+            <p>All files inside will be overwritten with zeros and permanently removed.</p>
+          </div>
+
+          <div id="folder-target" class="target-box empty">
+            <div class="target-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+                <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+              </svg>
+            </div>
+            <p id="folder-path" class="target-path">No folder selected</p>
+            <p class="target-hint">Choose a folder to shred its entire contents</p>
+          </div>
+
+          <button id="btn-select-folder" class="btn btn-outline" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+            Select folder
+          </button>
+        </div>
+      </section>
+
+      <!-- Drive mode -->
+      <section id="panel-drive" class="panel" role="tabpanel" hidden>
+        <div class="card">
+          <div class="card-head">
+            <h2>Target drive</h2>
+            <p>Every file on the drive will be overwritten with zeros and permanently removed.</p>
+          </div>
+
+          <div class="field">
+            <label for="drive-select">Available drives</label>
+            <select id="drive-select" class="select" disabled>
+              <option value="">Loading drives…</option>
+            </select>
+          </div>
+
+          <div id="drive-target" class="target-box empty drive-info hidden">
+            <div class="drive-badge" id="drive-letter">—</div>
+            <div class="drive-meta">
+              <p id="drive-label" class="drive-label">—</p>
+              <p id="drive-size" class="drive-size">—</p>
+            </div>
+          </div>
+
+          <div id="drive-warning" class="alert alert-warn hidden">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+              <path d="M12 9v4M12 17h.01"/>
+              <path d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/>
+            </svg>
+            <span>System drives cannot be wiped. Select a non-system drive only.</span>
           </div>
         </div>
-      </div>
+      </section>
 
-      <!-- Queue -->
-      <div id="queue-section" class="queue-section hidden">
-        <div class="queue-header">
-          <span id="queue-count" class="queue-count">0 items</span>
-          <button id="btn-clear-queue" class="btn-link">Clear all</button>
-        </div>
-        <ul id="queue-list" class="queue-list"></ul>
-      </div>
-
-      <!-- Options -->
-      <div class="options-row">
-        <label class="toggle">
+      <!-- Shared options -->
+      <div class="options-card">
+        <label class="check">
           <input type="checkbox" id="opt-force" />
-          <span class="toggle-track"></span>
-          <span class="toggle-label">Force (bypass read-only)</span>
+          <span class="check-box"></span>
+          <span class="check-label">
+            <strong>Force</strong>
+            <span>Override read-only attributes</span>
+          </span>
         </label>
-        <label class="toggle">
+        <label class="check">
           <input type="checkbox" id="opt-no-trim" />
-          <span class="toggle-track"></span>
-          <span class="toggle-label">Disable SSD TRIM</span>
+          <span class="check-box"></span>
+          <span class="check-label">
+            <strong>Disable SSD TRIM</strong>
+            <span>Use zero-fill instead of hardware erase</span>
+          </span>
         </label>
       </div>
 
-      <!-- Action -->
-      <button id="btn-shred" class="btn btn-danger" disabled>
-        Shred
+      <button id="btn-shred" class="btn btn-primary" type="button" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>
+        </svg>
+        <span id="btn-shred-label">Shred folder</span>
       </button>
     </main>
 
+    <footer class="footer">
+      <p>Data is overwritten with zeros before deletion. This action cannot be undone.</p>
+    </footer>
+    </div>
+
+    <div id="view-about" class="view" hidden>
+      <div class="about-scroll">
+        <div class="about-hero card">
+          <h2>What is NitroShred?</h2>
+          <p>NitroShred permanently deletes your private files so they can never be brought back — not with recovery software, not by a technician, not by anyone.</p>
+        </div>
+
+        <div class="about-block card">
+          <h3>Why isn’t the Recycle Bin enough?</h3>
+          <p>When you delete a file normally, your computer doesn’t actually erase it. It simply marks that space as “available” and hides the file from you. The actual content stays on your disk until something else overwrites it.</p>
+          <p class="about-muted">That’s why “undelete” and recovery tools exist — they can often restore deleted files in seconds. Emptying the Recycle Bin does not truly destroy the data.</p>
+        </div>
+
+        <div class="about-block card">
+          <h3>What does NitroShred do?</h3>
+          <ol class="about-steps">
+            <li>
+              <strong>Overwrites your files</strong>
+              <span>Every byte is replaced with zeros, like scribbling over a document until nothing is readable.</span>
+            </li>
+            <li>
+              <strong>Removes the file completely</strong>
+              <span>The file name and trace are wiped so there’s nothing left to find.</span>
+            </li>
+            <li>
+              <strong>Uses the fastest safe method for your storage</strong>
+              <span>On modern SSDs, NitroShred can ask the drive to erase data directly at the hardware level when possible.</span>
+            </li>
+          </ol>
+        </div>
+
+        <div class="about-block card">
+          <h3>Folder or drive — what’s the difference?</h3>
+          <div class="about-compare">
+            <div class="about-compare-item">
+              <div class="about-compare-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                  <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Shred a folder</strong>
+                <p>Use this when you want to permanently destroy everything inside one folder — old tax documents, photos, backups, or any private files in a specific location.</p>
+              </div>
+            </div>
+            <div class="about-compare-item">
+              <div class="about-compare-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
+                  <ellipse cx="12" cy="6" rx="8" ry="3"/>
+                  <path d="M4 6v6c0 1.7 3.6 3 8 3s8-1.3 8-3V6"/>
+                  <path d="M4 12v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6"/>
+                </svg>
+              </div>
+              <div>
+                <strong>Wipe a drive</strong>
+                <p>Use this when you’re clearing an entire USB stick, external hard drive, or secondary drive before selling, donating, or disposing of it. Every file on that drive will be destroyed.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="about-block card">
+          <h3>When should I use it?</h3>
+          <ul class="about-list">
+            <li>Before selling or giving away a computer or external drive</li>
+            <li>When getting rid of sensitive personal documents</li>
+            <li>When you need files gone for good — not just hidden</li>
+          </ul>
+        </div>
+
+        <div class="about-block card about-safety">
+          <h3>Important safety notes</h3>
+          <ul class="about-list">
+            <li><strong>This cannot be undone.</strong> Once shredded, your files are gone forever.</li>
+            <li><strong>Your main system drive is protected.</strong> NitroShred will not wipe Windows or your primary C: drive, so you can’t accidentally destroy your computer.</li>
+            <li><strong>Double-check before you click.</strong> Make sure you’ve selected the right folder or drive.</li>
+          </ul>
+        </div>
+
+        <p class="about-version">NitroShred v2.0 · Permanent secure erasure</p>
+      </div>
+    </div>
+
+    <!-- Confirm overlay -->
+    <div id="confirm-overlay" class="overlay hidden" role="dialog" aria-modal="true">
+      <div class="modal">
+        <div class="modal-icon warn" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 9v4M12 17h.01"/>
+            <path d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/>
+          </svg>
+        </div>
+        <h3 id="confirm-title">Confirm permanent deletion</h3>
+        <p id="confirm-desc" class="modal-desc"></p>
+        <p id="confirm-path" class="modal-path"></p>
+        <div id="confirm-drive-extra" class="confirm-extra hidden">
+          <label for="confirm-input">Type <strong id="confirm-keyword">WIPE</strong> to confirm</label>
+          <input id="confirm-input" class="input" type="text" autocomplete="off" spellcheck="false" />
+        </div>
+        <div class="modal-actions">
+          <button id="btn-confirm-cancel" class="btn btn-ghost" type="button">Cancel</button>
+          <button id="btn-confirm-proceed" class="btn btn-danger" type="button" disabled>Permanently delete</button>
+        </div>
+      </div>
+    </div>
+
     <!-- Progress overlay -->
     <div id="progress-overlay" class="overlay hidden">
-      <div class="overlay-card">
-        <div class="shredding-icon">⚡</div>
-        <p class="overlay-title">Shredding…</p>
-        <div class="progress-bar-wrap">
-          <div id="progress-bar" class="progress-bar"></div>
+      <div class="modal">
+        <div class="spinner" aria-hidden="true"></div>
+        <h3>Shredding data</h3>
+        <div class="progress-track">
+          <div id="progress-bar" class="progress-fill"></div>
         </div>
-        <p id="progress-label" class="progress-label">Preparing…</p>
+        <p id="progress-label" class="modal-desc">Preparing…</p>
       </div>
     </div>
 
     <!-- Result overlay -->
     <div id="result-overlay" class="overlay hidden">
-      <div class="overlay-card">
-        <div id="result-icon" class="result-icon">✅</div>
-        <p id="result-title" class="overlay-title">Done</p>
-        <p id="result-stats" class="result-stats"></p>
-        <ul id="result-errors" class="result-errors hidden"></ul>
-        <button id="btn-result-close" class="btn btn-secondary" style="margin-top:1.5rem">OK</button>
+      <div class="modal">
+        <div id="result-icon" class="modal-icon success" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 6 9 17l-5-5"/>
+          </svg>
+        </div>
+        <h3 id="result-title">Complete</h3>
+        <p id="result-stats" class="modal-desc"></p>
+        <ul id="result-errors" class="error-list hidden"></ul>
+        <button id="btn-result-close" class="btn btn-primary" type="button">Done</button>
       </div>
     </div>
   </div>

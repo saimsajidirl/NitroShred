@@ -10,8 +10,8 @@
     "windows": [
       {
         "title": "NitroShred",
-        "width": 720,
-        "height": 560,
+        "width": 640,
+        "height": 720,
         "resizable": false,
         "center": true
       }

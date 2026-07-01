@@ -14,13 +14,19 @@ pub struct ShredOptions {
 pub fn shred_file(path: &Path, opts: &ShredOptions) -> anyhow::Result<()> {
     if opts.force {
         // attempt to make writable
-        let mut perms = path.metadata()?.permissions();
         #[cfg(unix)]
         {
             use std::os::unix::fs::PermissionsExt;
+            let mut perms = path.metadata()?.permissions();
             perms.set_mode(perms.mode() | 0o200);
+            std::fs::set_permissions(path, perms).ok();
         }
-        std::fs::set_permissions(path, perms).ok();
+        #[cfg(windows)]
+        {
+            let mut perms = path.metadata()?.permissions();
+            perms.set_readonly(false);
+            std::fs::set_permissions(path, perms).ok();
+        }
     }
 
     let size = path.metadata()?.len();

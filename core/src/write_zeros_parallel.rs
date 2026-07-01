@@ -1,7 +1,11 @@
 use rayon::prelude::*;
 use std::fs::OpenOptions;
-use std::os::unix::fs::FileExt;
 use std::path::Path;
+
+#[cfg(unix)]
+use std::os::unix::fs::FileExt;
+#[cfg(windows)]
+use std::os::windows::fs::FileExt;
 
 const BUF_SIZE: usize = 8 * 1024 * 1024;
 pub const PARALLEL_THRESHOLD: u64 = 512 * 1024 * 1024; // 512 MB
@@ -22,7 +26,10 @@ pub fn parallel_shred(path: &Path) -> std::io::Result<()> {
 
             while done < len {
                 let chunk = ((len - done) as usize).min(BUF_SIZE);
+                #[cfg(unix)]
                 file.write_at(&buf[..chunk], offset + done)?;
+                #[cfg(windows)]
+                file.seek_write(&buf[..chunk], offset + done)?;
                 done += chunk as u64;
             }
             Ok(())

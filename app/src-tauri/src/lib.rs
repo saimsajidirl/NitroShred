@@ -10,6 +10,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             shred_commands::shred,
             shred_commands::validate_path,
+            shred_commands::list_drives,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

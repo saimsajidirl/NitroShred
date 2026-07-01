@@ -3,164 +3,291 @@ const { open } = window.__TAURI__.dialog;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
-const queue = []; // { path, isDir, sizeBytes }
+let section = "shred"; // "shred" | "about"
+let mode = "folder"; // "folder" | "drive"
+let folderPath = null;
+let drives = [];
+let selectedDrive = null;
 
-// ── DOM refs ──────────────────────────────────────────────────────────────────
+// ── DOM ─────────────────────────────────────────────────────────────────────────
 
-const dropZone         = document.getElementById("drop-zone");
-const queueSection     = document.getElementById("queue-section");
-const queueList        = document.getElementById("queue-list");
-const queueCount       = document.getElementById("queue-count");
-const btnClearQueue    = document.getElementById("btn-clear-queue");
-const btnPickFiles     = document.getElementById("btn-pick-files");
-const btnPickFolder    = document.getElementById("btn-pick-folder");
-const btnShred         = document.getElementById("btn-shred");
-const optForce         = document.getElementById("opt-force");
-const optNoTrim        = document.getElementById("opt-no-trim");
-const progressOverlay  = document.getElementById("progress-overlay");
-const progressBar      = document.getElementById("progress-bar");
-const progressLabel    = document.getElementById("progress-label");
-const resultOverlay    = document.getElementById("result-overlay");
-const resultIcon       = document.getElementById("result-icon");
-const resultTitle      = document.getElementById("result-title");
-const resultStats      = document.getElementById("result-stats");
-const resultErrors     = document.getElementById("result-errors");
-const btnResultClose   = document.getElementById("btn-result-close");
+const sectionShredTab = document.getElementById("section-shred");
+const sectionAboutTab = document.getElementById("section-about");
+const viewShred = document.getElementById("view-shred");
+const viewAbout = document.getElementById("view-about");
 
-// ── Queue management ──────────────────────────────────────────────────────────
+const tabFolder = document.getElementById("tab-folder");
+const tabDrive = document.getElementById("tab-drive");
+const panelFolder = document.getElementById("panel-folder");
+const panelDrive = document.getElementById("panel-drive");
+
+const folderTarget = document.getElementById("folder-target");
+const folderPathEl = document.getElementById("folder-path");
+const btnSelectFolder = document.getElementById("btn-select-folder");
+
+const driveSelect = document.getElementById("drive-select");
+const driveTarget = document.getElementById("drive-target");
+const driveLetter = document.getElementById("drive-letter");
+const driveLabel = document.getElementById("drive-label");
+const driveSize = document.getElementById("drive-size");
+const driveWarning = document.getElementById("drive-warning");
+
+const optForce = document.getElementById("opt-force");
+const optNoTrim = document.getElementById("opt-no-trim");
+const btnShred = document.getElementById("btn-shred");
+const btnShredLabel = document.getElementById("btn-shred-label");
+
+const confirmOverlay = document.getElementById("confirm-overlay");
+const confirmTitle = document.getElementById("confirm-title");
+const confirmDesc = document.getElementById("confirm-desc");
+const confirmPath = document.getElementById("confirm-path");
+const confirmDriveExtra = document.getElementById("confirm-drive-extra");
+const confirmKeyword = document.getElementById("confirm-keyword");
+const confirmInput = document.getElementById("confirm-input");
+const btnConfirmCancel = document.getElementById("btn-confirm-cancel");
+const btnConfirmProceed = document.getElementById("btn-confirm-proceed");
+
+const progressOverlay = document.getElementById("progress-overlay");
+const progressBar = document.getElementById("progress-bar");
+const progressLabel = document.getElementById("progress-label");
+
+const resultOverlay = document.getElementById("result-overlay");
+const resultIcon = document.getElementById("result-icon");
+const resultTitle = document.getElementById("result-title");
+const resultStats = document.getElementById("result-stats");
+const resultErrors = document.getElementById("result-errors");
+const btnResultClose = document.getElementById("btn-result-close");
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function formatBytes(bytes) {
-  if (bytes === 0) return "folder";
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+  if (!bytes) return "Unknown size";
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / 1024 / 1024).toFixed(0)} MB`;
+  return `${(bytes / 1024 / 1024 / 1024).toFixed(1)} GB`;
 }
 
-function renderQueue() {
-  queueList.innerHTML = "";
-  queue.forEach((item, i) => {
-    const li = document.createElement("li");
-    li.innerHTML = `
-      <span class="queue-item-icon">${item.isDir ? "📁" : "📄"}</span>
-      <span class="queue-item-path" title="${item.path}">${item.path}</span>
-      <span class="queue-item-size">${formatBytes(item.sizeBytes)}</span>
-      <button class="queue-item-remove" data-i="${i}" title="Remove">✕</button>
-    `;
-    queueList.appendChild(li);
-  });
-
-  queueList.querySelectorAll(".queue-item-remove").forEach(btn => {
-    btn.addEventListener("click", () => {
-      queue.splice(Number(btn.dataset.i), 1);
-      renderQueue();
-      syncUI();
-    });
-  });
-
-  const n = queue.length;
-  queueCount.textContent = `${n} item${n !== 1 ? "s" : ""}`;
-  queueSection.classList.toggle("hidden", n === 0);
-  syncUI();
+function currentTarget() {
+  if (mode === "folder") return folderPath;
+  return selectedDrive?.path ?? null;
 }
 
-function syncUI() {
-  btnShred.disabled = queue.length === 0;
+function syncShredButton() {
+  const target = currentTarget();
+  const driveBlocked = mode === "drive" && selectedDrive?.is_system;
+  btnShred.disabled = !target || driveBlocked;
+  btnShredLabel.textContent = mode === "folder" ? "Shred folder" : "Wipe drive";
 }
 
-async function addPaths(paths) {
-  for (const path of paths) {
-    if (queue.some(q => q.path === path)) continue;
-    try {
-      const info = await invoke("validate_path", { path });
-      queue.push({ path: info.path, isDir: info.isDir, sizeBytes: info.sizeBytes });
-    } catch (err) {
-      showError(path, String(err));
-    }
-  }
-  renderQueue();
+function setSection(next) {
+  section = next;
+  const isShred = section === "shred";
+
+  sectionShredTab.classList.toggle("active", isShred);
+  sectionAboutTab.classList.toggle("active", !isShred);
+  sectionShredTab.setAttribute("aria-selected", isShred);
+  sectionAboutTab.setAttribute("aria-selected", !isShred);
+
+  viewShred.classList.toggle("active", isShred);
+  viewAbout.classList.toggle("active", !isShred);
+  viewShred.hidden = !isShred;
+  viewAbout.hidden = isShred;
 }
 
-// ── File / folder pickers ─────────────────────────────────────────────────────
+function setMode(next) {
+  mode = next;
+  const isFolder = mode === "folder";
 
-btnPickFiles.addEventListener("click", async () => {
-  const selected = await open({ multiple: true, directory: false });
-  if (!selected) return;
-  await addPaths(Array.isArray(selected) ? selected : [selected]);
-});
+  tabFolder.classList.toggle("active", isFolder);
+  tabDrive.classList.toggle("active", !isFolder);
+  tabFolder.setAttribute("aria-selected", isFolder);
+  tabDrive.setAttribute("aria-selected", !isFolder);
 
-btnPickFolder.addEventListener("click", async () => {
+  panelFolder.classList.toggle("active", isFolder);
+  panelDrive.classList.toggle("active", !isFolder);
+  panelFolder.hidden = !isFolder;
+  panelDrive.hidden = isFolder;
+
+  syncShredButton();
+}
+
+// ── Folder mode ───────────────────────────────────────────────────────────────
+
+btnSelectFolder.addEventListener("click", async () => {
   const selected = await open({ multiple: false, directory: true });
   if (!selected) return;
-  await addPaths([selected]);
+
+  try {
+    const info = await invoke("validate_path", { path: selected });
+    folderPath = info.path;
+    folderPathEl.textContent = info.path;
+    folderTarget.classList.remove("empty");
+    folderTarget.classList.add("selected");
+    syncShredButton();
+  } catch (err) {
+    showError("Invalid folder", String(err));
+  }
 });
 
-// ── Drag and drop ─────────────────────────────────────────────────────────────
+// ── Drive mode ────────────────────────────────────────────────────────────────
 
-dropZone.addEventListener("dragover", e => {
-  e.preventDefault();
-  dropZone.classList.add("drag-over");
+async function loadDrives() {
+  try {
+    drives = await invoke("list_drives");
+    driveSelect.innerHTML = "";
+
+    const placeholder = document.createElement("option");
+    placeholder.value = "";
+    placeholder.textContent = "Select a drive…";
+    driveSelect.appendChild(placeholder);
+
+    const usable = drives.filter(d => !d.is_system);
+    for (const d of usable) {
+      const opt = document.createElement("option");
+      opt.value = d.path;
+      opt.textContent = `${d.letter}  ${d.label}  (${formatBytes(d.total_bytes)})`;
+      driveSelect.appendChild(opt);
+    }
+
+    driveSelect.disabled = usable.length === 0;
+    if (usable.length === 0) {
+      driveWarning.classList.remove("hidden");
+      driveWarning.querySelector("span").textContent =
+        "No non-system drives available. System drives are protected.";
+    }
+  } catch (err) {
+    driveSelect.innerHTML = '<option value="">Failed to load drives</option>';
+    showError("Drive scan failed", String(err));
+  }
+}
+
+function updateDriveUI() {
+  const path = driveSelect.value;
+  selectedDrive = drives.find(d => d.path === path) ?? null;
+
+  if (!selectedDrive) {
+    driveTarget.classList.add("hidden");
+    driveWarning.classList.add("hidden");
+    syncShredButton();
+    return;
+  }
+
+  driveTarget.classList.remove("hidden", "empty");
+  driveTarget.classList.add("selected");
+  driveLetter.textContent = selectedDrive.letter;
+  driveLabel.textContent = selectedDrive.label;
+  driveSize.textContent = formatBytes(selectedDrive.total_bytes);
+
+  driveWarning.classList.toggle("hidden", !selectedDrive.is_system);
+  syncShredButton();
+}
+
+driveSelect.addEventListener("change", updateDriveUI);
+
+// ── Section tabs ──────────────────────────────────────────────────────────────
+
+sectionShredTab.addEventListener("click", () => setSection("shred"));
+sectionAboutTab.addEventListener("click", () => setSection("about"));
+
+// ── Mode tabs ─────────────────────────────────────────────────────────────────
+
+tabFolder.addEventListener("click", () => setMode("folder"));
+tabDrive.addEventListener("click", () => setMode("drive"));
+
+// ── Shred flow ────────────────────────────────────────────────────────────────
+
+btnShred.addEventListener("click", () => {
+  const target = currentTarget();
+  if (!target) return;
+
+  const isDrive = mode === "drive";
+
+  confirmTitle.textContent = isDrive
+    ? "Wipe entire drive?"
+    : "Shred folder contents?";
+
+  confirmDesc.textContent = isDrive
+    ? "Every file on this drive will be overwritten with zeros and permanently deleted. This cannot be undone."
+    : "All files inside this folder will be overwritten with zeros and permanently deleted. This cannot be undone.";
+
+  confirmPath.textContent = target;
+
+  if (isDrive) {
+    const keyword = selectedDrive.letter.replace(":", "");
+    confirmKeyword.textContent = keyword;
+    confirmDriveExtra.classList.remove("hidden");
+    confirmInput.value = "";
+    btnConfirmProceed.disabled = true;
+  } else {
+    confirmDriveExtra.classList.add("hidden");
+    btnConfirmProceed.disabled = false;
+  }
+
+  confirmOverlay.classList.remove("hidden");
+  if (isDrive) confirmInput.focus();
 });
 
-dropZone.addEventListener("dragleave", () => dropZone.classList.remove("drag-over"));
-
-dropZone.addEventListener("drop", async e => {
-  e.preventDefault();
-  dropZone.classList.remove("drag-over");
-  const paths = Array.from(e.dataTransfer.files).map(f => f.path);
-  if (paths.length) await addPaths(paths);
+confirmInput.addEventListener("input", () => {
+  const keyword = selectedDrive?.letter.replace(":", "") ?? "";
+  btnConfirmProceed.disabled = confirmInput.value.trim().toUpperCase() !== keyword;
 });
 
-// ── Clear queue ───────────────────────────────────────────────────────────────
-
-btnClearQueue.addEventListener("click", () => {
-  queue.length = 0;
-  renderQueue();
+btnConfirmCancel.addEventListener("click", () => {
+  confirmOverlay.classList.add("hidden");
 });
 
-// ── Shred ─────────────────────────────────────────────────────────────────────
+btnConfirmProceed.addEventListener("click", async () => {
+  confirmOverlay.classList.add("hidden");
+  await runShred();
+});
 
-btnShred.addEventListener("click", async () => {
-  if (queue.length === 0) return;
+async function runShred() {
+  const target = currentTarget();
+  if (!target) return;
 
-  showProgress(0, `Shredding ${queue.length} item${queue.length !== 1 ? "s" : ""}…`);
+  showProgress(0, mode === "drive" ? "Wiping drive…" : "Shredding folder…");
 
-  const paths = queue.map(q => q.path);
-
-  // Animate progress bar while work runs in the backend
   let fakePct = 0;
   const ticker = setInterval(() => {
-    fakePct = Math.min(fakePct + (100 - fakePct) * 0.06, 92);
-    setProgress(fakePct, `Shredding ${queue.length} item${queue.length !== 1 ? "s" : ""}…`);
-  }, 200);
+    fakePct = Math.min(fakePct + (100 - fakePct) * 0.05, 92);
+    setProgress(fakePct, mode === "drive" ? "Wiping drive…" : "Shredding folder…");
+  }, 250);
 
   try {
     const resp = await invoke("shred", {
       req: {
-        paths,
+        paths: [target],
         force: optForce.checked,
         no_trim: optNoTrim.checked,
       },
     });
 
     clearInterval(ticker);
-    setProgress(100, "Done.");
-
-    await new Promise(r => setTimeout(r, 400));
+    setProgress(100, "Complete");
+    await new Promise(r => setTimeout(r, 350));
     hideProgress();
 
     const failed = resp.results.filter(r => !r.success);
     showResult(resp, failed);
 
-    queue.length = 0;
-    renderQueue();
+    if (mode === "folder") {
+      folderPath = null;
+      folderPathEl.textContent = "No folder selected";
+      folderTarget.classList.add("empty");
+      folderTarget.classList.remove("selected");
+    } else {
+      driveSelect.value = "";
+      updateDriveUI();
+      await loadDrives();
+    }
+    syncShredButton();
   } catch (err) {
     clearInterval(ticker);
     hideProgress();
-    showError("Shred failed", String(err));
+    showError("Operation failed", String(err));
   }
-});
+}
 
-// ── Progress helpers ──────────────────────────────────────────────────────────
+// ── Progress ──────────────────────────────────────────────────────────────────
 
 function showProgress(pct, label) {
   progressBar.style.width = `${pct}%`;
@@ -177,22 +304,26 @@ function hideProgress() {
   progressOverlay.classList.add("hidden");
 }
 
-// ── Result helpers ────────────────────────────────────────────────────────────
+// ── Results ─────────────────────────────────────────────────────────────────
 
 function showResult(resp, failed) {
   const success = resp.results.length - failed.length;
   const hasErrors = failed.length > 0;
 
-  resultIcon.textContent = hasErrors ? (success > 0 ? "⚠️" : "❌") : "✅";
+  resultIcon.className = "modal-icon " + (hasErrors ? (success > 0 ? "warn" : "error") : "success");
+  resultIcon.innerHTML = hasErrors
+    ? `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 4.2 2.6 18a2 2 0 0 0 1.7 3h15.4a2 2 0 0 0 1.7-3L13.7 4.2a2 2 0 0 0-3.4 0z"/></svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6 9 17l-5-5"/></svg>`;
+
   resultTitle.textContent = hasErrors
     ? (success > 0 ? "Completed with errors" : "Failed")
-    : "Shredded successfully";
+    : (mode === "drive" ? "Drive wiped" : "Folder shredded");
 
   const speedStr = resp.avg_speed_mb_s > 0
-    ? `  ·  avg ${resp.avg_speed_mb_s.toFixed(0)} MB/s`
+    ? ` · ${resp.avg_speed_mb_s.toFixed(0)} MB/s avg`
     : "";
   resultStats.textContent =
-    `${success} file${success !== 1 ? "s" : ""} shredded  ·  ${resp.total_mb.toFixed(1)} MB${speedStr}`;
+    `${success} file${success !== 1 ? "s" : ""} erased · ${resp.total_mb.toFixed(1)} MB${speedStr}`;
 
   resultErrors.innerHTML = "";
   if (hasErrors) {
@@ -209,12 +340,12 @@ function showResult(resp, failed) {
   resultOverlay.classList.remove("hidden");
 }
 
-function showError(path, msg) {
-  resultIcon.textContent = "❌";
-  resultTitle.textContent = "Error";
-  resultStats.textContent = path;
-  resultErrors.innerHTML = `<li>${msg}</li>`;
-  resultErrors.classList.remove("hidden");
+function showError(title, msg) {
+  resultIcon.className = "modal-icon error";
+  resultIcon.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg>`;
+  resultTitle.textContent = title;
+  resultStats.textContent = msg;
+  resultErrors.classList.add("hidden");
   resultOverlay.classList.remove("hidden");
 }
 
@@ -224,4 +355,7 @@ btnResultClose.addEventListener("click", () => {
 
 // ── Init ──────────────────────────────────────────────────────────────────────
 
-renderQueue();
+setSection("shred");
+setMode("folder");
+loadDrives();
+syncShredButton();
