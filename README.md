@@ -111,10 +111,8 @@ nitroshred [OPTIONS] <PATH>
 | Option | Description |
 |--------|-------------|
 | `<PATH>` | File or directory to shred |
-| `-f, --force` | Override read-only attributes |
 | `-r, --recursive` | Shred an entire folder tree |
 | `-v, --verbose` | Show per-file speed and I/O method |
-| `--no-trim` | Disable SSD TRIM; use zero-fill only |
 | `--full` | **Full drive wipe:** shred files + overwrite free space + volume TRIM |
 
 **Examples**

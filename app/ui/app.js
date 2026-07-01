@@ -33,8 +33,6 @@ const driveLabel = document.getElementById("drive-label");
 const driveSize = document.getElementById("drive-size");
 const driveWarning = document.getElementById("drive-warning");
 
-const optForce = document.getElementById("opt-force");
-const optNoTrim = document.getElementById("opt-no-trim");
 const btnShred = document.getElementById("btn-shred");
 const btnShredLabel = document.getElementById("btn-shred-label");
 
@@ -270,8 +268,6 @@ async function runShred() {
     const resp = await invoke("shred", {
       req: {
         paths: [target],
-        force: optForce.checked,
-        no_trim: optNoTrim.checked,
         full_drive: mode === "drive",
       },
     });

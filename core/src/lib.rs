@@ -60,14 +60,14 @@ pub fn shred_path(path: &Path, opts: &ShredOptions) -> anyhow::Result<Vec<ShredR
 
     let full_wipe = opts.wipe_free_space || opts.full_drive;
     if full_wipe && path.is_dir() {
-        results.extend(run_volume_finalize(path, opts)?);
+        results.extend(run_volume_finalize(path)?);
     }
 
     Ok(results)
 }
 
 /// After all files are shredded: wipe free clusters, then TRIM the volume.
-fn run_volume_finalize(root: &Path, opts: &ShredOptions) -> anyhow::Result<Vec<ShredResult>> {
+fn run_volume_finalize(root: &Path) -> anyhow::Result<Vec<ShredResult>> {
     let mut extra = Vec::new();
 
     // Phase 1 — overwrite every free cluster with zeros
@@ -96,8 +96,7 @@ fn run_volume_finalize(root: &Path, opts: &ShredOptions) -> anyhow::Result<Vec<S
     }
 
     // Phase 2 — volume-level TRIM so SSD firmware releases all deallocated blocks
-    if !opts.no_trim {
-        match volume_trim::trim_volume(root) {
+    match volume_trim::trim_volume(root) {
             Ok(true) => {
                 extra.push(ShredResult {
                     path: format!("{} [volume TRIM]", root.display()),
@@ -117,7 +116,6 @@ fn run_volume_finalize(root: &Path, opts: &ShredOptions) -> anyhow::Result<Vec<S
                     speed_mb_s: 0.0,
                 });
             }
-        }
     }
 
     Ok(extra)

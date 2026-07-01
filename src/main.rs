@@ -12,10 +12,6 @@ struct Cli {
     /// Target file or directory
     path: PathBuf,
 
-    /// Bypass read-only permissions
-    #[arg(short, long)]
-    force: bool,
-
     /// Recursively shred directory contents
     #[arg(short, long)]
     recursive: bool,
@@ -23,10 +19,6 @@ struct Cli {
     /// Print I/O path and speed per file
     #[arg(short, long)]
     verbose: bool,
-
-    /// Disable hardware TRIM — force zero-fill on SSD targets
-    #[arg(long)]
-    no_trim: bool,
 
     /// Full wipe: shred files then overwrite all free space + volume TRIM (drive/volume roots)
     #[arg(long)]
@@ -44,9 +36,7 @@ fn main() -> anyhow::Result<()> {
     }
 
     let opts = ShredOptions {
-        force: cli.force,
         verbose: cli.verbose,
-        no_trim: cli.no_trim,
         wipe_free_space: cli.full,
         full_drive: cli.full && cli.path.is_dir(),
     };

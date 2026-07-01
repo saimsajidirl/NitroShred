@@ -5,8 +5,6 @@ use std::path::Path;
 #[derive(Debug, Deserialize)]
 pub struct ShredRequest {
     pub paths: Vec<String>,
-    pub force: bool,
-    pub no_trim: bool,
     pub full_drive: bool,
 }
 
@@ -37,9 +35,7 @@ pub struct DriveInfo {
 #[tauri::command]
 pub fn shred(req: ShredRequest) -> Result<ShredResponse, String> {
     let opts = ShredOptions {
-        force: req.force,
         verbose: false,
-        no_trim: req.no_trim,
         wipe_free_space: req.full_drive,
         full_drive: req.full_drive,
     };
