@@ -119,17 +119,16 @@ html, body {
 .brand-mark {
   width: 44px;
   height: 44px;
+  flex-shrink: 0;
   border-radius: 11px;
-  background: var(--blue);
-  color: #fff;
-  display: grid;
-  place-items: center;
+  overflow: hidden;
   box-shadow: 0 4px 12px var(--blue-ring);
 }
 
-.brand-mark svg {
-  width: 22px;
-  height: 22px;
+.brand-mark .logo-img {
+  width: 44px;
+  height: 44px;
+  display: block;
 }
 
 .brand-title {
@@ -730,9 +729,91 @@ html, body {
   line-height: 1.65;
 }
 
-.about-hero p + p,
+.about-hero p + p {
+  margin-top: 10px;
+}
+
 .about-block p + p {
   margin-top: 10px;
+}
+
+.about-highlight {
+  padding: 12px 14px;
+  background: var(--blue-light);
+  border-left: 3px solid var(--blue);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  color: var(--text) !important;
+  font-weight: 500;
+  font-size: 0.84rem !important;
+}
+
+.about-funfact {
+  border-color: #c7d2fe;
+  background: #f5f7ff;
+}
+
+.funfact-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--blue);
+  margin-bottom: 6px;
+}
+
+.about-funfact h3 {
+  color: var(--text);
+}
+
+.about-funfact em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-opensource strong {
+  color: var(--blue);
+}
+
+.about-support {
+  border-color: #bfdbfe;
+  background: #f8fbff;
+}
+
+.support-links {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.support-links a {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  color: var(--text);
+  text-decoration: none;
+  font-size: 0.86rem;
+  font-weight: 600;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.support-links a:hover {
+  border-color: var(--blue);
+  background: var(--blue-light);
+  color: var(--blue);
+}
+
+.support-links svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  color: var(--blue);
 }
 
 .about-muted {

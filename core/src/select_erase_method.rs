@@ -9,6 +9,10 @@ pub struct ShredOptions {
     pub force: bool,
     pub verbose: bool,
     pub no_trim: bool,
+    /// Overwrite all free clusters after shredding files (full secure wipe).
+    pub wipe_free_space: bool,
+    /// Drive-root wipe: shred all files + free space + volume TRIM.
+    pub full_drive: bool,
 }
 
 pub fn shred_file(path: &Path, opts: &ShredOptions) -> anyhow::Result<()> {

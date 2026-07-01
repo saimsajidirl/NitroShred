@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "shred-commands"
+description = "NitroShred backend shred, validate, and drive list commands"
+commands.allow = ["shred", "validate_path", "list_drives"]

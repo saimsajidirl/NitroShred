@@ -1,1 +1,25 @@
-/target
+# Rust
+/target/
+**/target/
+
+# Tauri auto-generated (recreated on `cargo tauri dev` / `cargo tauri build`)
+app/src-tauri/gen/
+
+# Node (icon generation script only — not a project dependency)
+node_modules/
+package-lock.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*~
+.idea/
+.vscode/
+*.code-workspace
+
+# Logs & env
+*.log
+.env
+.env.*

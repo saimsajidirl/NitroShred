@@ -9,6 +9,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "NitroShred",
         "width": 640,
         "height": 720,

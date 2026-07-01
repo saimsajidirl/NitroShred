@@ -1,5 +1,6 @@
 const { invoke } = window.__TAURI__.core;
 const { open } = window.__TAURI__.dialog;
+const { open: openExternal } = window.__TAURI__.shell;
 
 // ── State ─────────────────────────────────────────────────────────────────────
 
@@ -193,6 +194,15 @@ sectionAboutTab.addEventListener("click", () => setSection("about"));
 tabFolder.addEventListener("click", () => setMode("folder"));
 tabDrive.addEventListener("click", () => setMode("drive"));
 
+function driveConfirmKeyword(drive) {
+  if (!drive) return "";
+  if (drive.letter.includes(":")) {
+    return drive.letter.replace(":", "").toUpperCase();
+  }
+  const parts = drive.path.split(/[/\\]/).filter(Boolean);
+  return (parts.at(-1) ?? drive.label).toUpperCase();
+}
+
 // ── Shred flow ────────────────────────────────────────────────────────────────
 
 btnShred.addEventListener("click", () => {
@@ -206,13 +216,13 @@ btnShred.addEventListener("click", () => {
     : "Shred folder contents?";
 
   confirmDesc.textContent = isDrive
-    ? "Every file on this drive will be overwritten with zeros and permanently deleted. This cannot be undone."
+    ? "This runs a full secure wipe in three phases: (1) shred every file with zeros, (2) overwrite all remaining free space, (3) TRIM the drive at the hardware level. This cannot be undone."
     : "All files inside this folder will be overwritten with zeros and permanently deleted. This cannot be undone.";
 
   confirmPath.textContent = target;
 
   if (isDrive) {
-    const keyword = selectedDrive.letter.replace(":", "");
+    const keyword = driveConfirmKeyword(selectedDrive);
     confirmKeyword.textContent = keyword;
     confirmDriveExtra.classList.remove("hidden");
     confirmInput.value = "";
@@ -227,7 +237,7 @@ btnShred.addEventListener("click", () => {
 });
 
 confirmInput.addEventListener("input", () => {
-  const keyword = selectedDrive?.letter.replace(":", "") ?? "";
+  const keyword = driveConfirmKeyword(selectedDrive);
   btnConfirmProceed.disabled = confirmInput.value.trim().toUpperCase() !== keyword;
 });
 
@@ -244,12 +254,16 @@ async function runShred() {
   const target = currentTarget();
   if (!target) return;
 
-  showProgress(0, mode === "drive" ? "Wiping drive…" : "Shredding folder…");
+  showProgress(0, mode === "drive"
+    ? "Phase 1/3 — shredding files…"
+    : "Shredding folder…");
 
   let fakePct = 0;
   const ticker = setInterval(() => {
     fakePct = Math.min(fakePct + (100 - fakePct) * 0.05, 92);
-    setProgress(fakePct, mode === "drive" ? "Wiping drive…" : "Shredding folder…");
+    setProgress(fakePct, mode === "drive"
+      ? "Secure wipe in progress…"
+      : "Shredding folder…");
   }, 250);
 
   try {
@@ -258,6 +272,7 @@ async function runShred() {
         paths: [target],
         force: optForce.checked,
         no_trim: optNoTrim.checked,
+        full_drive: mode === "drive",
       },
     });
 
@@ -267,7 +282,7 @@ async function runShred() {
     hideProgress();
 
     const failed = resp.results.filter(r => !r.success);
-    showResult(resp, failed);
+    showResult(resp);
 
     if (mode === "folder") {
       folderPath = null;
@@ -306,9 +321,18 @@ function hideProgress() {
 
 // ── Results ─────────────────────────────────────────────────────────────────
 
-function showResult(resp, failed) {
-  const success = resp.results.length - failed.length;
-  const hasErrors = failed.length > 0;
+function showResult(resp) {
+  const fileResults = resp.results.filter(r =>
+    !r.path.includes("[free space]") && !r.path.includes("[volume TRIM]")
+  );
+  const freeSpace = resp.results.find(r => r.path.includes("[free space]"));
+  const volumeTrim = resp.results.find(r => r.path.includes("[volume TRIM]"));
+
+  const success = fileResults.filter(r => r.success).length;
+  const failed = fileResults.filter(r => !r.success);
+  const hasErrors = failed.length > 0
+    || (freeSpace && !freeSpace.success)
+    || (volumeTrim && !volumeTrim.success);
 
   resultIcon.className = "modal-icon " + (hasErrors ? (success > 0 ? "warn" : "error") : "success");
   resultIcon.innerHTML = hasErrors
@@ -317,18 +341,29 @@ function showResult(resp, failed) {
 
   resultTitle.textContent = hasErrors
     ? (success > 0 ? "Completed with errors" : "Failed")
-    : (mode === "drive" ? "Drive wiped" : "Folder shredded");
+    : (mode === "drive" ? "Drive securely wiped" : "Folder shredded");
 
   const speedStr = resp.avg_speed_mb_s > 0
     ? ` · ${resp.avg_speed_mb_s.toFixed(0)} MB/s avg`
     : "";
-  resultStats.textContent =
-    `${success} file${success !== 1 ? "s" : ""} erased · ${resp.total_mb.toFixed(1)} MB${speedStr}`;
+  let stats = `${success} file${success !== 1 ? "s" : ""} erased · ${resp.total_mb.toFixed(1)} MB${speedStr}`;
+  if (freeSpace?.success && freeSpace.mb > 0) {
+    stats += ` · ${freeSpace.mb.toFixed(1)} MB free space wiped`;
+  }
+  if (volumeTrim?.success) {
+    stats += " · volume TRIM complete";
+  }
+  resultStats.textContent = stats;
 
   resultErrors.innerHTML = "";
-  if (hasErrors) {
+  const allFailed = [
+    ...failed,
+    ...(freeSpace && !freeSpace.success ? [freeSpace] : []),
+    ...(volumeTrim && !volumeTrim.success ? [volumeTrim] : []),
+  ];
+  if (allFailed.length > 0) {
     resultErrors.classList.remove("hidden");
-    failed.forEach(r => {
+    allFailed.forEach(r => {
       const li = document.createElement("li");
       li.textContent = `${r.path}: ${r.error || "unknown error"}`;
       resultErrors.appendChild(li);
@@ -351,6 +386,15 @@ function showError(title, msg) {
 
 btnResultClose.addEventListener("click", () => {
   resultOverlay.classList.add("hidden");
+});
+
+// ── External links ────────────────────────────────────────────────────────────
+
+document.querySelectorAll(".support-links a").forEach(link => {
+  link.addEventListener("click", async e => {
+    e.preventDefault();
+    await openExternal(link.href);
+  });
 });
 
 // ── Init ──────────────────────────────────────────────────────────────────────

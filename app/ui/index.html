@@ -4,16 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>NitroShred</title>
+  <link rel="icon" type="image/svg+xml" href="assets/logo.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="favicon.png" />
+  <link rel="apple-touch-icon" href="favicon-192.png" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
   <div id="app">
     <header class="header">
       <div class="brand">
-        <div class="brand-mark" aria-hidden="true">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M13 2L3 14h8l-1 8 10-12h-8l1-8z"/>
-          </svg>
+        <div class="brand-mark">
+          <img src="assets/logo.svg" alt="" class="logo-img" width="44" height="44" />
         </div>
         <div>
           <h1 class="brand-title">NitroShred</h1>
@@ -89,7 +90,7 @@
         <div class="card">
           <div class="card-head">
             <h2>Target drive</h2>
-            <p>Every file on the drive will be overwritten with zeros and permanently removed.</p>
+            <p>Full secure wipe: every file is zero-filled and removed, then all free space is overwritten and the drive is TRIMmed at the hardware level.</p>
           </div>
 
           <div class="field">
@@ -154,7 +155,16 @@
       <div class="about-scroll">
         <div class="about-hero card">
           <h2>What is NitroShred?</h2>
-          <p>NitroShred permanently deletes your private files so they can never be brought back — not with recovery software, not by a technician, not by anyone.</p>
+          <p>NitroShred permanently deletes your private files so they can never be brought back — not with recovery software, not by a technician, and not by law enforcement forensic labs.</p>
+          <p class="about-highlight">When you shred with NitroShred, the data is overwritten and destroyed at the source. Even the FBI cannot recover it from that drive or card afterward.</p>
+        </div>
+
+        <div class="about-block card about-funfact">
+          <p class="funfact-label">Fun fact · Spoiler alert</p>
+          <h3>Real life beats the movies</h3>
+          <p>In the true-crime documentary <em>Lover, Stalker, Killer</em>, a killer deleted evidence from an SD card and assumed it was gone for good. They only hit “delete” — they didn’t securely wipe the data.</p>
+          <p>An IT specialist recovered the “deleted” files from the card and found critical evidence inside. The killer was caught.</p>
+          <p class="about-muted">If they had used NitroShred, that data would have been truly unrecoverable. Normal delete is not secure erase — and in this case, that made all the difference.</p>
         </div>
 
         <div class="about-block card">
@@ -175,8 +185,12 @@
               <span>The file name and trace are wiped so there’s nothing left to find.</span>
             </li>
             <li>
-              <strong>Uses the fastest safe method for your storage</strong>
-              <span>On modern SSDs, NitroShred can ask the drive to erase data directly at the hardware level when possible.</span>
+              <strong>Wipes all free space (drive mode)</strong>
+              <span>After deleting files, NitroShred fills every remaining free cluster with zeros so old deleted data can’t be recovered.</span>
+            </li>
+            <li>
+              <strong>Hardware TRIM on SSDs</strong>
+              <span>On modern SSDs, NitroShred sends TRIM commands so the drive firmware permanently erases blocks at the hardware level.</span>
             </li>
           </ol>
         </div>
@@ -205,7 +219,7 @@
               </div>
               <div>
                 <strong>Wipe a drive</strong>
-                <p>Use this when you’re clearing an entire USB stick, external hard drive, or secondary drive before selling, donating, or disposing of it. Every file on that drive will be destroyed.</p>
+                <p>Full secure wipe for an entire USB stick or external drive: shred all files, overwrite every free cluster, then TRIM the drive. Use before selling, donating, or disposing of storage.</p>
               </div>
             </div>
           </div>
@@ -217,6 +231,37 @@
             <li>Before selling or giving away a computer or external drive</li>
             <li>When getting rid of sensitive personal documents</li>
             <li>When you need files gone for good — not just hidden</li>
+          </ul>
+        </div>
+
+        <div class="about-block card about-opensource">
+          <h3>Why is NitroShred free?</h3>
+          <p>NitroShred is <strong>open source</strong> — the full code is public and anyone can read exactly how it works. No hidden tricks, no spyware, no locked-in secrets.</p>
+          <p>NitroShred is free and <strong>will always be free</strong>. We will never compromise your data or lock features behind a paywall. You can inspect the code yourself and verify that it does what it says.</p>
+        </div>
+
+        <div class="about-block card about-support">
+          <h3>Support the creator</h3>
+          <p>Love NitroShred? The app stays free forever — but if you want to help the creator keep building, here’s how:</p>
+          <ul class="support-links">
+            <li>
+              <a href="https://github.com/sponsors/saimsajidirl" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+                Sponsor on GitHub
+              </a>
+            </li>
+            <li>
+              <a href="https://github.com/saimsajidirl/NitroShred" target="_blank" rel="noopener noreferrer">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><path d="M15 3h6v6"/><path d="M10 14 21 3"/></svg>
+                Patreon &amp; links on GitHub
+              </a>
+            </li>
+            <li>
+              <a href="mailto:saimsajidirl@gmail.com">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m2 7 10 7 10-7"/></svg>
+                saimsajidirl@gmail.com
+              </a>
+            </li>
           </ul>
         </div>
 

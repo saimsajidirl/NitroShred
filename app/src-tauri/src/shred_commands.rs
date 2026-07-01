@@ -7,6 +7,7 @@ pub struct ShredRequest {
     pub paths: Vec<String>,
     pub force: bool,
     pub no_trim: bool,
+    pub full_drive: bool,
 }
 
 #[derive(Debug, Serialize)]
@@ -39,6 +40,8 @@ pub fn shred(req: ShredRequest) -> Result<ShredResponse, String> {
         force: req.force,
         verbose: false,
         no_trim: req.no_trim,
+        wipe_free_space: req.full_drive,
+        full_drive: req.full_drive,
     };
 
     let mut all_results: Vec<ShredResult> = Vec::new();
@@ -141,7 +144,12 @@ fn list_available_drives() -> Result<Vec<DriveInfo>, String> {
         Ok(drives)
     }
 
-    #[cfg(not(windows))]
+    #[cfg(target_os = "linux")]
+    {
+        linux_list_mounts()
+    }
+
+    #[cfg(not(any(windows, target_os = "linux")))]
     {
         Ok(vec![DriveInfo {
             letter: "/".into(),
@@ -151,6 +159,69 @@ fn list_available_drives() -> Result<Vec<DriveInfo>, String> {
             is_system: true,
         }])
     }
+}
+
+#[cfg(target_os = "linux")]
+fn linux_list_mounts() -> Result<Vec<DriveInfo>, String> {
+    let mounts = std::fs::read_to_string("/proc/mounts")
+        .or_else(|_| std::fs::read_to_string("/etc/mtab"))
+        .map_err(|e| e.to_string())?;
+
+    let mut drives = Vec::new();
+    for line in mounts.lines() {
+        let mut parts = line.split_whitespace();
+        let Some(_device) = parts.next() else { continue };
+        let Some(mount) = parts.next() else { continue };
+
+        if mount == "/" {
+            continue;
+        }
+        if !(mount.starts_with("/media/")
+            || mount.starts_with("/mnt/")
+            || mount.starts_with("/run/media/"))
+        {
+            continue;
+        }
+
+        let path = Path::new(mount);
+        if !path.is_dir() {
+            continue;
+        }
+
+        let label = mount.rsplit('/').next().unwrap_or(mount).to_string();
+        drives.push(DriveInfo {
+            letter: mount.to_string(),
+            path: mount.to_string(),
+            label,
+            total_bytes: linux_mount_total_bytes(mount),
+            is_system: false,
+        });
+    }
+
+    if drives.is_empty() {
+        return Err(
+            "No removable drives found. Plug in a USB drive (usually mounted under /media or /mnt)."
+                .into(),
+        );
+    }
+    Ok(drives)
+}
+
+#[cfg(target_os = "linux")]
+fn linux_mount_total_bytes(mount: &str) -> u64 {
+    let output = match std::process::Command::new("df")
+        .args(["-B1", mount])
+        .output()
+    {
+        Ok(o) if o.status.success() => o,
+        _ => return 0,
+    };
+    let text = String::from_utf8_lossy(&output.stdout);
+    text.lines()
+        .nth(1)
+        .and_then(|line| line.split_whitespace().nth(1))
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0)
 }
 
 #[cfg(windows)]

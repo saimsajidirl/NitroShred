@@ -1981,6 +1981,7 @@ dependencies = [
  "rand",
  "rayon",
  "serde",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
