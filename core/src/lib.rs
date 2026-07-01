@@ -1,4 +1,7 @@
 pub mod block_protected_paths;
+pub mod bootable_script;
+pub mod hardware_secure_erase;
+pub mod physical_drive_wipe;
 pub mod select_erase_method;
 pub mod trim_ssd_blocks;
 pub mod volume_trim;

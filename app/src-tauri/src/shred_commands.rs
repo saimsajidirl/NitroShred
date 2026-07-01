@@ -1,6 +1,11 @@
-use nitroshred_core::{ShredOptions, ShredResult, shred_path};
+use nitroshred_core::{
+    bootable_script, hardware_secure_erase, physical_drive_wipe, ShredOptions, ShredResult,
+    shred_path,
+};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
+use std::sync::{atomic::AtomicBool, Arc};
+use tauri::Emitter;
 
 #[derive(Debug, Deserialize)]
 pub struct ShredRequest {
@@ -276,4 +281,197 @@ fn windows_volume_label(root: &str) -> Option<String> {
 
     let len = label.iter().position(|&c| c == 0).unwrap_or(0);
     Some(String::from_utf16_lossy(&label[..len]))
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  Physical-drive commands
+// ═══════════════════════════════════════════════════════════════════════════
+
+/// Enumerate all physical block devices visible to the OS.
+#[tauri::command]
+pub fn list_physical_drives(
+) -> Result<Vec<physical_drive_wipe::PhysicalDriveInfo>, String> {
+    physical_drive_wipe::list_physical_drives().map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct RawWipeRequest {
+    pub drive_path: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct RawWipeResult {
+    pub bytes_wiped: u64,
+    pub mb_wiped: f64,
+    pub speed_mb_s: f64,
+}
+
+#[derive(Debug, Clone, Serialize)]
+pub struct WipeProgressEvent {
+    pub bytes_done: u64,
+    pub total_bytes: u64,
+    pub pct: u8,
+    pub speed_mb_s: f64,
+}
+
+/// Zero-fill every sector on a physical drive.
+/// Emits `physical-wipe-progress` events during the wipe.
+/// Requires admin / root privileges.
+#[tauri::command]
+pub async fn raw_sector_wipe(
+    app: tauri::AppHandle,
+    req: RawWipeRequest,
+) -> Result<RawWipeResult, String> {
+    // Guard: refuse system drives
+    let drives = physical_drive_wipe::list_physical_drives().map_err(|e| e.to_string())?;
+    if let Some(d) = drives.iter().find(|d| d.path == req.drive_path) {
+        if d.is_system {
+            return Err("System drive protection: cannot wipe the OS drive.".into());
+        }
+    }
+
+    let (tx, mut rx) = tokio::sync::mpsc::channel::<WipeProgressEvent>(64);
+    let cancel = Arc::new(AtomicBool::new(false));
+    let drive_path = req.drive_path.clone();
+    let start = std::time::Instant::now();
+
+    let mut wipe_task = tokio::task::spawn_blocking(move || {
+        physical_drive_wipe::raw_wipe_physical_drive(
+            &drive_path,
+            cancel,
+            move |bytes_done, total_bytes, speed_mb_s| {
+                let pct = if total_bytes > 0 {
+                    ((bytes_done as f64 / total_bytes as f64) * 100.0).min(100.0) as u8
+                } else {
+                    0
+                };
+                let _ = tx.blocking_send(WipeProgressEvent {
+                    bytes_done,
+                    total_bytes,
+                    pct,
+                    speed_mb_s,
+                });
+            },
+        )
+    });
+
+    // Stream progress events while wipe runs
+    loop {
+        tokio::select! {
+            maybe_evt = rx.recv() => {
+                match maybe_evt {
+                    Some(evt) => { app.emit("physical-wipe-progress", &evt).ok(); }
+                    None => break,
+                }
+            }
+            result = &mut wipe_task => {
+                while let Ok(evt) = rx.try_recv() {
+                    app.emit("physical-wipe-progress", &evt).ok();
+                }
+                let bytes_wiped = result
+                    .map_err(|e| e.to_string())?
+                    .map_err(|e| e.to_string())?;
+                let elapsed = start.elapsed().as_secs_f64();
+                let mb_wiped = bytes_wiped as f64 / 1_048_576.0;
+                return Ok(RawWipeResult {
+                    bytes_wiped,
+                    mb_wiped,
+                    speed_mb_s: if elapsed > 0.0 { mb_wiped / elapsed } else { 0.0 },
+                });
+            }
+        }
+    }
+
+    Err("Wipe task ended unexpectedly".into())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct HardwareEraseRequest {
+    pub drive_path: String,
+    /// "nvme_crypto" | "nvme_block"
+    pub method: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct HardwareEraseResult {
+    pub accepted: bool,
+    pub message: String,
+}
+
+#[derive(Debug, Serialize)]
+pub struct SecureEraseCapResult {
+    pub nvme_sanitize_crypto: bool,
+    pub nvme_sanitize_block: bool,
+    pub ata_secure_erase: bool,
+    pub ata_enhanced_erase: bool,
+    pub ata_frozen: bool,
+}
+
+/// Query hardware-level secure erase capabilities for a physical drive.
+#[tauri::command]
+pub fn query_secure_erase_capability(
+    drive_path: String,
+) -> Result<SecureEraseCapResult, String> {
+    hardware_secure_erase::query_capability(&drive_path)
+        .map(|c| SecureEraseCapResult {
+            nvme_sanitize_crypto: c.nvme_sanitize_crypto,
+            nvme_sanitize_block: c.nvme_sanitize_block,
+            ata_secure_erase: c.ata_secure_erase,
+            ata_enhanced_erase: c.ata_enhanced_erase,
+            ata_frozen: c.ata_frozen,
+        })
+        .map_err(|e| e.to_string())
+}
+
+/// Issue an NVMe Sanitize command to the drive.
+/// Returns immediately — the firmware performs the erase asynchronously.
+#[tauri::command]
+pub fn hardware_secure_erase(req: HardwareEraseRequest) -> Result<HardwareEraseResult, String> {
+    let action = match req.method.as_str() {
+        "nvme_crypto" => hardware_secure_erase::NvmeSanitizeAction::CryptoErase,
+        "nvme_block" => hardware_secure_erase::NvmeSanitizeAction::BlockErase,
+        other => return Err(format!("Unknown erase method: {:?}", other)),
+    };
+
+    hardware_secure_erase::nvme_sanitize(&req.drive_path, action)
+        .map(|()| HardwareEraseResult {
+            accepted: true,
+            message: "Sanitize command accepted. The drive firmware is now erasing data \
+                      in the background. This can take from seconds (crypto erase) to \
+                      several minutes (block erase). You may monitor status below."
+                .into(),
+        })
+        .map_err(|e| e.to_string())
+}
+
+/// Poll NVMe Sanitize progress for a drive.
+/// Returns 0–100 while in progress, None if not running / already complete.
+#[tauri::command]
+pub fn nvme_sanitize_status(drive_path: String) -> Result<Option<u8>, String> {
+    hardware_secure_erase::nvme_sanitize_status(&drive_path).map_err(|e| e.to_string())
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ExportScriptRequest {
+    /// Absolute path to the output directory.
+    pub output_dir: String,
+    /// Device paths to include in the script, e.g. ["/dev/sda"].
+    pub device_paths: Vec<String>,
+    /// Number of wipe passes (1 = single zero-fill, 3 = DoD).
+    pub passes: u8,
+}
+
+/// Generate and save a bootable wipe script package to `output_dir`.
+#[tauri::command]
+pub fn export_bootable_script(req: ExportScriptRequest) -> Result<String, String> {
+    let device_refs: Vec<&str> = req.device_paths.iter().map(|s| s.as_str()).collect();
+    let out = std::path::Path::new(&req.output_dir);
+    bootable_script::save_bootable_package(out, &device_refs, req.passes)
+        .map(|()| {
+            format!(
+                "Saved nitroshred-wipe.sh and README.txt to {}",
+                req.output_dir
+            )
+        })
+        .map_err(|e| e.to_string())
 }

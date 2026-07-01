@@ -932,6 +932,19 @@ html, body {
   background: var(--blue);
 }
 
+.about-ghost {
+  border-color: #e9d5ff;
+  background: #faf5ff;
+}
+
+.about-ghost .funfact-label {
+  color: #7c3aed;
+}
+
+.about-ghost h3 {
+  color: var(--text);
+}
+
 .about-safety {
   border-color: var(--warn-border);
   background: var(--warn-bg);
@@ -954,4 +967,188 @@ html, body {
   font-size: 0.72rem;
   color: var(--text-muted);
   padding: 8px 0 4px;
+}
+
+/* ── Mode tabs (3-column when Physical is present) ─────── */
+.mode-tabs {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+/* ── Alert info ─────────────────────────────────────────── */
+:root {
+  --info-bg: #f0f9ff;
+  --info-border: #bae6fd;
+  --info-text: #0c4a6e;
+  --c-muted: #94a3b8;
+}
+
+.alert-info {
+  background: var(--info-bg);
+  border: 1px solid var(--info-border);
+  color: var(--info-text);
+  margin-bottom: 14px;
+}
+
+/* ── Physical drive row ──────────────────────────────────── */
+.phys-drive-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.phys-drive-row .select {
+  flex: 1;
+}
+
+.btn-icon {
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+}
+
+.btn-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* ── Tag badge ───────────────────────────────────────────── */
+.tag {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 8px;
+  border-radius: 99px;
+  background: var(--blue-light);
+  color: var(--blue);
+  margin-top: 4px;
+}
+
+.tag-nvme   { background: #f0fdf4; color: #15803d; }
+.tag-ssd    { background: var(--blue-light); color: var(--blue); }
+.tag-hdd    { background: #fafaf9; color: #78716c; }
+.tag-usb    { background: #fdf4ff; color: #7e22ce; }
+
+/* ── Radio group ─────────────────────────────────────────── */
+.radio-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.radio-item {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.radio-item:hover {
+  background: var(--bg-subtle);
+  border-color: var(--border-strong);
+}
+
+.radio-item input[type="radio"] {
+  margin-top: 3px;
+  flex-shrink: 0;
+  accent-color: var(--blue);
+  width: 16px;
+  height: 16px;
+}
+
+.radio-item:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-light);
+}
+
+.radio-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.radio-title {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.radio-desc {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+/* ── Sanitize status row ─────────────────────────────────── */
+.phys-status-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 14px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  margin-top: 10px;
+}
+
+.status-spinner {
+  width: 22px;
+  height: 22px;
+  border: 2px solid var(--border);
+  border-top-color: var(--blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  flex-shrink: 0;
+}
+
+.status-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.status-text p {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.btn-sm {
+  padding: 6px 12px;
+  font-size: 0.78rem;
+  flex-shrink: 0;
+}
+
+/* ── Physical progress overlay ───────────────────────────── */
+.modal-wide {
+  max-width: 480px;
+}
+
+.phys-progress-stats {
+  display: flex;
+  justify-content: space-between;
+  width: 100%;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.phys-progress-stats span:first-child {
+  font-size: 1.1rem;
+  color: var(--blue);
+}
+
+.phys-progress-stats span:last-child {
+  color: var(--text-secondary);
+}
+
+/* ── Physical panel scroll (panel overflows like drive mode) */
+#panel-physical .card {
+  overflow-y: auto;
+  max-height: calc(100vh - 320px);
 }

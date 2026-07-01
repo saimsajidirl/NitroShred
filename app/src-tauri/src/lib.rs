@@ -11,6 +11,13 @@ pub fn run() {
             shred_commands::shred,
             shred_commands::validate_path,
             shred_commands::list_drives,
+            // Physical-drive operations
+            shred_commands::list_physical_drives,
+            shred_commands::raw_sector_wipe,
+            shred_commands::query_secure_erase_capability,
+            shred_commands::hardware_secure_erase,
+            shred_commands::nvme_sanitize_status,
+            shred_commands::export_bootable_script,
         ])
         .setup(|app| {
             #[cfg(debug_assertions)]

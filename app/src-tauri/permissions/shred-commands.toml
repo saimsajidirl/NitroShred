@@ -1,4 +1,14 @@
 [[permission]]
 identifier = "shred-commands"
-description = "NitroShred backend shred, validate, and drive list commands"
-commands.allow = ["shred", "validate_path", "list_drives"]
+description = "NitroShred backend commands: filesystem shred, drive wipe, NVMe sanitize, bootable script"
+commands.allow = [
+  "shred",
+  "validate_path",
+  "list_drives",
+  "list_physical_drives",
+  "raw_sector_wipe",
+  "query_secure_erase_capability",
+  "hardware_secure_erase",
+  "nvme_sanitize_status",
+  "export_bootable_script",
+]
