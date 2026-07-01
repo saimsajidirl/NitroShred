@@ -22,21 +22,49 @@ SSDs have an extra complication. Even if you overwrite a file, the drive's contr
 
 1. **Overwrites your files** — Every byte is replaced with zeros.
 2. **Removes the file completely** — File name and trace are wiped.
-3. **Wipes all free space** (drive mode) — Fills every remaining free cluster with zeros so old deleted data can't be recovered.
+3. **Wipes all free space** (Drive mode) — Fills every remaining free cluster with zeros so old deleted data can't be recovered.
 4. **Hardware TRIM on SSDs** — Sends TRIM commands so drive firmware permanently erases blocks.
+5. **Raw sector wipe** (Physical mode) — Bypasses the file system entirely and zeroes every single physical sector. The drive is indistinguishable from one fresh out of the factory.
 
-### Folder vs drive
+---
 
-| Mode | What it does |
-|------|----------------|
-| **Shred a folder** | Permanently destroys everything inside one folder — documents, photos, backups, etc. |
-| **Wipe a drive** | Full secure wipe for a USB stick or external drive: shred all files, overwrite every free cluster, then TRIM the drive. Use before selling, donating, or disposing of storage. |
+## Modes
 
-### When should I use it?
+### Folder
+Permanently destroy everything inside one folder — documents, photos, backups, private files. The rest of the drive is untouched.
 
-- Before selling or giving away a computer or external drive
-- When getting rid of sensitive personal documents
+### Drive
+Full secure wipe for an entire USB stick or external drive: shred all files, overwrite every free cluster, then TRIM the drive. Use before selling, donating, or disposing of storage.
+
+### Physical
+The deepest level of erasure available. Bypasses the file system and writes zeros directly to every physical sector on the disk via raw device I/O (DBAN / nwipe style). Also supports **NVMe Sanitize** (hardware crypto erase or block erase) and **bootable offline wipe script** export for environments where the drive cannot be unmounted.
+
+#### Drive vs Physical — the key distinction
+
+**Drive mode** destroys what the data said, but its ghost remains. A forensic expert might still be able to tell that *something* once existed in that space — they just cannot read what it was. Like a redacted document: the black bars are there. You know something was written. You just cannot read it.
+
+**Physical mode** erases the ghost too. Every sector is overwritten with zeros until the entire drive is indistinguishable from one that has never been touched. There is no trace, no record, no proof that anything was ever there. It is as if the data never existed at all — not hidden, not redacted, simply *gone from existence*.
+
+For most people, Drive mode is more than enough. Physical mode is for when you need the drive to look like it just came out of the box — no history, no past, nothing.
+
+### Physical sub-methods
+
+| Method | Description |
+|--------|-------------|
+| **Raw Sector Wipe** | Writes zeros to every sector — nwipe / DBAN style. Works on any drive type. Requires admin / root. |
+| **NVMe Sanitize — Crypto Erase** | Drive firmware destroys its own encryption keys, making all data instantly unreadable. Fastest and most thorough for NVMe SSDs. |
+| **NVMe Sanitize — Block Erase** | Firmware erases every NAND block via the internal sanitize command. For NVMe drives without per-sector encryption. |
+| **Export Bootable Wipe Script** | Saves a nwipe-compatible bash script + instructions for offline wiping from a live Linux USB (ShredOS, Ubuntu Live, etc.). |
+
+---
+
+## When should I use it?
+
+- Before selling or giving away a computer, laptop, or external drive
+- When getting rid of sensitive personal documents or private photos
 - When you need files gone for good — not just hidden
+- When handing a drive to someone you do not fully trust
+- When preparing a device for decommission or disposal
 
 ---
 
@@ -67,10 +95,11 @@ Love NitroShred? The app stays free forever — but if you want to help the crea
 ## Safety
 
 - **This cannot be undone.** Once shredded, your files are gone forever.
-- **Your main system drive is protected.** NitroShred will not wipe Windows or your primary `C:` drive.
+- **Your main system drive is protected.** NitroShred will not wipe Windows or your primary `C:` drive, and physical wipe is blocked on any drive the OS is running from.
 - **Double-check before you click.** Make sure you've selected the right folder or drive.
+- **Physical mode requires admin privileges.** Run NitroShred as Administrator (Windows) or root (Linux) for raw sector wipe and NVMe sanitize operations.
 
-Protected paths include `/`, `/etc`, `/bin`, `/usr`, `C:\Windows`, and similar.
+Protected paths include `/`, `/etc`, `/bin`, `/usr`, `C:\Windows`, and similar system locations.
 
 ---
 
@@ -136,9 +165,10 @@ nitroshred -r -v --full D:\
 
 ### Desktop app
 
-1. Open **Shred** tab → choose **Folder** or **Drive**
+1. Open **Shred** tab → choose **Folder**, **Drive**, or **Physical**
 2. Select target → configure options → confirm
-3. **Drive mode** runs the full 3-phase wipe automatically
+3. **Drive mode** runs the full 3-phase wipe automatically (files → free space → TRIM)
+4. **Physical mode** lists attached physical drives — select a drive and choose your erase method
 
 ---
 
@@ -146,8 +176,8 @@ nitroshred -r -v --full D:\
 
 | Platform | Status |
 |----------|--------|
-| Linux | Fully supported — TRIM, io_uring, fstrim |
-| Windows | Supported — file TRIM, free-space wipe, volume retrim |
+| Windows | Fully supported — file TRIM, free-space wipe, volume retrim, raw sector wipe, NVMe sanitize |
+| Linux | Fully supported — TRIM, io_uring, fstrim, raw sector wipe, NVMe ioctl |
 | macOS | CLI core works; desktop app not yet tested |
 
 ---
@@ -156,14 +186,30 @@ nitroshred -r -v --full D:\
 
 ```
 NitroShred/
-├── core/                 # Shred engine (shared by CLI + app)
-├── src/                  # CLI binary
+├── core/                        # Shred engine (shared by CLI + app)
+│   └── src/
+│       ├── lib.rs               # Public API + shred orchestration
+│       ├── select_erase_method  # Per-file erase strategy picker
+│       ├── write_zeros_direct   # Direct I/O zero-fill (Windows & Linux)
+│       ├── write_zeros_parallel # Parallel file shredder (rayon)
+│       ├── write_zeros_uring    # io_uring zero-fill (Linux only)
+│       ├── wipe_free_space      # Free cluster overwrite
+│       ├── volume_trim          # Volume-level TRIM (fstrim / IOCTL)
+│       ├── trim_ssd_blocks      # Per-file TRIM
+│       ├── block_protected_paths# System path guard
+│       ├── physical_drive_wipe  # Raw sector wipe + drive enumeration
+│       ├── hardware_secure_erase# NVMe Sanitize / ATA Secure Erase
+│       └── bootable_script      # Bootable offline wipe script generator
+├── src/                         # CLI binary
 ├── app/
-│   ├── ui/               # Desktop app frontend
-│   └── src-tauri/        # Tauri backend
-│       ├── capabilities/ # Tauri permissions (commit this)
-│       └── permissions/  # Custom command ACLs (commit this)
-└── scripts/              # Icon generation helper
+│   ├── ui/                      # Desktop app frontend (HTML/CSS/JS)
+│   └── src-tauri/               # Tauri backend
+│       ├── src/
+│       │   ├── lib.rs           # Tauri command registration
+│       │   └── shred_commands   # All Tauri command handlers
+│       ├── capabilities/        # Tauri permissions (commit this)
+│       └── permissions/         # Custom command ACLs (commit this)
+└── scripts/                     # Icon generation helper
 ```
 
 > **Note:** `app/src-tauri/gen/` is auto-generated by Tauri at build time — do **not** commit it. Run `cargo tauri dev` or `cargo tauri build` to regenerate.
@@ -174,4 +220,4 @@ NitroShred/
 
 Open source. See repository for license details.
 
-**NitroShred v2.0** · Permanent secure erasure
+**NitroShred v2.1** · Permanent secure erasure

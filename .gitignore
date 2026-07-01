@@ -23,3 +23,10 @@ desktop.ini
 *.log
 .env
 .env.*
+
+# NitroShred runtime artifacts
+*.nitroshred_wipe_*.tmp
+nitroshred-bootable-*/
+
+# Python helper scripts (one-off dev tooling)
+replace_about.py
